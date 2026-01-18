@@ -1,56 +1,60 @@
 -- ==============================================================================
--- ЛАБОРАТОРНА РОБОТА 5: НОРМАЛІЗАЦІЯ СХЕМИ БД
--- Файл містить CREATE TABLE для нових таблиць та ALTER TABLE для змін
+-- 1. СТВОРЕННЯ НОВИХ ТАБЛИЦЬ
 -- ==============================================================================
 
--- ==============================================================================
--- НОВІ ТАБЛИЦІ (CREATE TABLE)
--- ==============================================================================
-
--- 1. Нова базова таблиця Person (виділена з Staff, Author, Member)
-CREATE TABLE Person (
-    Person_ID int PRIMARY KEY,
-    FullName varchar NOT NULL,
-    Phone varchar NOT NULL,
-    Email varchar NOT NULL,
-    Address varchar NOT NULL,
-    CreatedAt date NOT NULL,
-    UpdatedAt date NOT NULL
+-- Таблиця публікацій
+CREATE TABLE IF NOT EXISTS Publication (
+    Publication_ID SERIAL PRIMARY KEY,
+    Title VARCHAR(255) NOT NULL,
+    DateOfEstablishment DATE NOT NULL,
+    CreatedAt DATE NOT NULL DEFAULT CURRENT_DATE,
+    UpdatedAt DATE NOT NULL DEFAULT CURRENT_DATE
 );
 
--- 2. Нова таблиця BookAuthor (M:N зв'язок для підтримки кількох авторів на одну книгу)
-CREATE TABLE BookAuthor (
-    BookAuthor_int PRIMARY KEY,
-    Book_ID int NOT NULL REFERENCES Book(Book_ID),
-    Author_ID int NOT NULL REFERENCES Author(Author_ID),
-    CreatedAt date NOT NULL,
-    UpdatedAt date NOT NULL
+-- Нова базова таблиця Person
+CREATE TABLE IF NOT EXISTS Person (
+    Person_ID SERIAL PRIMARY KEY,
+    FullName varchar(255) NOT NULL,
+    Phone varchar(50) NOT NULL,
+    Email varchar(100) NOT NULL,
+    Address varchar(255) NOT NULL,
+    CreatedAt date NOT NULL DEFAULT CURRENT_DATE,
+    UpdatedAt date NOT NULL DEFAULT CURRENT_DATE
 );
 
--- 3. Нова таблиця BookGenre (M:N зв'язок для підтримки кількох жанрів на одну книгу)
-CREATE TABLE BookGenre (
-    BookGenre_int PRIMARY KEY,
-    Book_ID int NOT NULL REFERENCES Book(Book_ID),
-    Genre_ID int NOT NULL REFERENCES Genre(Genre_ID),
-    CreatedAt date NOT NULL,
-    UpdatedAt date NOT NULL
+-- Таблиця BookAuthor (M:N зв'язок)
+CREATE TABLE IF NOT EXISTS BookAuthor (
+    BookAuthor_ID SERIAL PRIMARY KEY,
+    Book_ID int NOT NULL REFERENCES Book(Book_ID) ON DELETE CASCADE,
+    Author_ID int NOT NULL REFERENCES Author(Author_ID) ON DELETE CASCADE,
+    CreatedAt date NOT NULL DEFAULT CURRENT_DATE,
+    UpdatedAt date NOT NULL DEFAULT CURRENT_DATE
 );
 
--- 4. Нова таблиця BookPublisher (M:N зв'язок для підтримки кількох видавництв на одну книгу)
-CREATE TABLE BookPublisher (
-    BookPublisher_int PRIMARY KEY,
-    Book_ID int NOT NULL REFERENCES Book(Book_ID),
-    Publisher_ID int NOT NULL REFERENCES Publication(Publication_ID),
-    CreatedAt date NOT NULL,
-    UpdatedAt date NOT NULL,
-    DayOfArrivalToLibrary date NOT NULL
+-- Таблиця BookGenre (M:N зв'язок)
+CREATE TABLE IF NOT EXISTS BookGenre (
+    BookGenre_ID SERIAL PRIMARY KEY,
+    Book_ID int NOT NULL REFERENCES Book(Book_ID) ON DELETE CASCADE,
+    Genre_ID int NOT NULL REFERENCES Genre(Genre_ID) ON DELETE CASCADE,
+    CreatedAt date NOT NULL DEFAULT CURRENT_DATE,
+    UpdatedAt date NOT NULL DEFAULT CURRENT_DATE
+);
+
+-- Таблиця BookPublisher (M:N зв'язок)
+CREATE TABLE IF NOT EXISTS BookPublisher (
+    BookPublisher_ID SERIAL PRIMARY KEY,
+    Book_ID int NOT NULL REFERENCES Book(Book_ID) ON DELETE CASCADE,
+    Publisher_ID int NOT NULL REFERENCES Publication(Publication_ID) ON DELETE CASCADE,
+    DayOfArrivalToLibrary date NOT NULL,
+    CreatedAt date NOT NULL DEFAULT CURRENT_DATE,
+    UpdatedAt date NOT NULL DEFAULT CURRENT_DATE
 );
 
 -- ==============================================================================
--- ЗМІНИ ІСНУЮЧИХ ТАБЛИЦЬ (ALTER TABLE)
+-- 2. МОДИФІКАЦІЯ ІСНУЮЧИХ ТАБЛИЦЬ
 -- ==============================================================================
 
--- 1. Змінити таблицю Staff: видалити повторювані атрибути, додати FK на Person
+-- Зміна Staff: Видаляємо старі поля, додаємо зв'язок з Person
 ALTER TABLE Staff
     DROP COLUMN IF EXISTS FullName CASCADE,
     DROP COLUMN IF EXISTS Phone CASCADE,
@@ -58,39 +62,26 @@ ALTER TABLE Staff
     DROP COLUMN IF EXISTS Address CASCADE;
 
 ALTER TABLE Staff
-    ADD COLUMN Person_ID int NOT NULL REFERENCES Person(Person_ID);
+    ADD COLUMN IF NOT EXISTS Person_ID int NOT NULL REFERENCES Person(Person_ID);
 
--- 2. Змінити таблицю Author: залишити тільки специфічні поля автора
--- (FullName розділяється на FirstName та SecondName, що вже є в Author)
--- Автор може опціонально посилатися на Person (якщо це та сама людина)
--- Але в поточному дизайні Author має окремі FirstName, SecondName
--- Тому додаємо опціональний FK на Person
+
+-- Зміна Member: Видаляємо старі поля, додаємо зв'язок з Person
+ALTER TABLE Member
+    DROP COLUMN IF EXISTS FullName CASCADE,
+    DROP COLUMN IF EXISTS Phone CASCADE,
+    DROP COLUMN IF EXISTS Email CASCADE,
+    DROP COLUMN IF EXISTS Address CASCADE;
+
+ALTER TABLE Member
+    ADD COLUMN IF NOT EXISTS Person_ID int NOT NULL REFERENCES Person(Person_ID);
+
+
+-- Зміна Author: Додаємо опціональний зв'язок
 ALTER TABLE Author
-    ADD COLUMN Person_ID int REFERENCES Person(Person_ID);
+    ADD COLUMN IF NOT EXISTS Person_ID int REFERENCES Person(Person_ID);
 
--- 3. Змінити таблицю Member: видалити повторювані атрибути, додати FK на Person
-ALTER TABLE Member
-    DROP COLUMN IF EXISTS FullName CASCADE,
-    DROP COLUMN IF EXISTS Phone CASCADE,
-    DROP COLUMN IF EXISTS Email CASCADE,
-    DROP COLUMN IF EXISTS Address CASCADE;
 
-ALTER TABLE Member
-    ADD COLUMN Person_ID int NOT NULL REFERENCES Person(Person_ID);
-
--- 4. Змінити таблицю Book: видалити прямі FK на Author і Genre
--- (замість них будуть M:N таблиці BookAuthor та BookGenre)
+-- Зміна Book: Видаляємо прямі зв'язки, бо тепер є проміжні таблиці
 ALTER TABLE Book
     DROP COLUMN IF EXISTS Author_ID CASCADE,
     DROP COLUMN IF EXISTS Genre_ID CASCADE;
-
--- 5. Змінити таблицю Staff: додати FK на Person (якщо ще не додано)
--- Це гарантує, що кожна людина у Staff збережена в Person
-ALTER TABLE Staff
-    ADD CONSTRAINT fk_staff_person 
-    FOREIGN KEY (Person_ID) REFERENCES Person(Person_ID);
-
--- 6. Змінити таблицю Member: додати FK на Person (якщо ще не додано)
-ALTER TABLE Member
-    ADD CONSTRAINT fk_member_person 
-    FOREIGN KEY (Person_ID) REFERENCES Person(Person_ID);
